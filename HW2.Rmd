@@ -1,11 +1,11 @@
 ---
 title: "HW2 STA521 Fall18"
-author: '[Your Name Here, netid and github username here]'
+author: 'Name:Jennifer Wilson        NetID:jmw160         GitHub UserName:Jennifer2010'
 date: "Due September 23, 2018 5pm"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ## Backgound Reading
@@ -17,30 +17,40 @@ Readings: Chapters 3-4 in Weisberg Applied Linear Regression
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This exercise involves the UN data set from `alr3` package. Install `alr3` and the `car` packages and load the data to answer the following questions adding your code in the code chunks.  Please add appropriate code to the chunks to suppress messages and warnings as needed once you are sure the code is working properly and remove instructions if no longer needed. Figures should have informative captions. Please switch the output to pdf for your final version to upload to Sakai. **Remove these instructions for final submission**
-
-
 ## Exploratory Data Analysis
 
-0.  Preliminary read in the data.  After testing, modify the code chunk so that output, messages and warnings are suppressed.  *Exclude text from final*
-
 ```{r data}
-library(alr3)
+suppressMessages(library(alr3))
 data(UN3, package="alr3")
 help(UN3) 
-library(car)
+suppressMessages(library(car))
 ```
-
 
 1. Create a summary of the data.  How many variables have missing data?  Which are quantitative and which are qualtitative?
 
+6 of the variables have missing data. Purban is the only variable without missing values. All 7 of the variables are quantitative.
+
 ```{r}
+library(knitr)
+kable(summary(UN3), caption="Summary Statistics on UN3 Variables")
 
 ```
 
 2. What is the mean and standard deviation of each quantitative predictor?  Provide in a nicely formatted table.
 
 ```{r}
+
+library(knitr)
+mean <- data.frame(sapply(UN3,mean,na.rm = TRUE)) #Calculate Mean, ignore missing values
+SDev <- data.frame(sapply(UN3,sd,na.rm = TRUE)) #Calculate Standard Deviation
+                                                #ignore missing values
+
+MeanSdv <- cbind(mean,SDev)
+names(MeanSdv) <- c("Mean","Standard Deviation") #Rename variables 
+
+kable(MeanSdv, digits = 2, caption = "Mean and Stadard Deviation of
+      Quantitative Variables")
+
 
 ```
 
@@ -49,7 +59,20 @@ library(car)
 highlighting the relationships among the predictors. Comment
 on your findings regarding trying to predict `ModernC` from the other variables.  Are there potential outliers, nonlinear relationships or transformations that appear to be needed based on your graphical EDA?
 
+- Change seems to show a decent negative trend. 
+- PPgdp does not appear to have a linear relationship now and could probably benefit from transformation. 
+- Frate is not showing a distinct trend at the moment. It is possible a transformation of some sort could help solidify a trend. Otherwise this variable may need to be removed.
+- Pop is showing 2 distinct outliers, China and India although it is unclear now whether these need to be removed. Pop is another variable that does not initially seem like it would be useful in a model to predict ModernC. 
+- Fertility is showing a pretty good negative trend, but does look slightly non-linear and may need transformation
+- Purban shows a pretty good positive trend although there is a lot of spread. At this point it does not appear to need transformation.
+
+
 ```{r}
+
+suppressMessages(library(GGally))
+UN3.NO_NA<-na.omit(UN3)
+
+ggpairs(UN3.NO_NA)
 
 ```
 
@@ -57,43 +80,200 @@ on your findings regarding trying to predict `ModernC` from the other variables.
 
 4.  Use the `lm()` function to perform a multiple linear regression with `ModernC` as the response and all other variables as the predictors, using the formula `ModernC ~ .`, where the `.` includes all remaining variables in the dataframe.  Create  diagnostic residual plot from the linear model object and comment on results regarding assumptions.  How many observations are used in your model fitting?
 
+85 observations were used in the model, meaning that all observations missing values were not untilized. Looking at the residual vs leverage plot we can see that the China and India are high leverage points in the context of the data, but they are both still within Cooks Distance. From the QQ-plot it appears that the residuals are either lightly tails or potentially left skewed. Additionally, the Scale Location Plot shows points concentrated on the right half of the graph along with a dip at the end pointing to some issues in the model.
+
+
+Looking at the summary output we can see that the residuals are fairly evenly dispursed bt are not centered at zero. This is an indication that the model does not fit great. This echos the finding in the QQ plot that the residuals may not be normally distributed. Finally, the small t-values and large p-values for Frate and PUrban suggest that these variables may need to be removed from the model as they are not statistically significant and may lead to overfitting.
+
+
 ```{r}
+Modern.lm <-lm(UN3$ModernC ~ ., UN3)
+summary(Modern.lm)
+
+par(mfrow=c(2,2)) 
+plot(Modern.lm, ask=F) #plot the residual graphs    
 
 ```
 
 5. Examine added variable plots `car::avPlot` or `car::avPlots`  for your model above. Are there any plots that suggest that transformations are needed for any of the terms in the model? Describe. Is it likely that any of the localities are influential for any of the terms?  Which localities?  Which terms?  
 
+- PPgdp may be in need of transformation as exchbited by the grouping of poins on the left side of the graph.
+- China and India may need to be removed as evidenced by the Pop avPlot as the line appears to be based entirely on these points.
+- Purban exhibits a very flat trendline through the avPlot. This would suggest that maybe this variable should be removed from the model as it does not appear to add any additional information that is not already gained from other variables in the model. 
+
+
+
 ```{r}
+car::avPlots(Modern.lm)
 
 ```
 
 6.  Using the Box-Tidwell  `car::boxTidwell` or graphical methods find appropriate transformations of the predictor variables to be used as predictors in the linear model.  If any predictors are negative, you may need to transform so that they are non-negative.  Describe your method and  the resulting transformations.
 
+I tried numerous combinations of variables in the boxTidwell functions. From the various outcomes, boxTidwell tends to identify a need for transformation for the variable ChangePos (This is change + the minimum value so that all values of the variable are positive.) The suggested transformation , -10 or -134 depending on the boxTidwell esentially moves all values to 0. This in conjunction with plots above provide further evidence to remove this variable from the model.
+
+The next closes variable need transformation according to boxTidwell is Fertility, however the p-value is still too high to suggest the need for a transformation. 
+
+Simple scatterplots show the benefit of log transformations for PPgdp to create a more linear relationship. For Pop the log transformation helps to bring the outliers inline wiht the rest of the data. The scatter plot for Fertility shows that there is definitely not a linear relationship between Fertility and CModern and this may be causing issues in the model.
 
 ```{r}
+
+#Create a new variable with the minimum value added to all values in Change
+#Now all values for change are positive and can be evaluated
+UN3.NO_NA.Change2 <- transform(UN3.NO_NA, ChangePos = (Change+1.11))  
+
+car::boxTidwell(ModernC~Fertility+ChangePos+PPgdp,~Purban+Frate,data=UN3.NO_NA.Change2)
+car::boxTidwell(ModernC~PPgdp,~Purban+Fertility+Change+Pop+Frate,data=UN3)
+
+car::boxTidwell(ModernC~Pop,~Purban+Fertility+Change+PPgdp+Frate,data=UN3)
+car::boxTidwell(ModernC~Pop+Fertility,~Purban+Change+PPgdp+Frate,data=UN3)
+car::boxTidwell(ModernC~Fertility,~Purban+Pop+Change+PPgdp+Frate,data=UN3)
+car::boxTidwell(ModernC~ChangePos,~Purban+Pop+Fertility+PPgdp+Frate,data=UN3.NO_NA.Change2)
+
+plot(UN3$PPgdp,UN3$ModernC)
+plot(log(UN3$PPgdp),UN3$ModernC)
+
+plot(UN3$Pop,UN3$ModernC)
+plot(log(UN3$Pop),UN3$ModernC)
+
+plot(UN3$Fertility,UN3$ModernC)
+
+plot(UN3$Frate,UN3$ModernC)
+
 
 ```
 
 7. Given the selected transformations of the predictors, select a transformation of the response using `MASS::boxcox` or `car::boxCox` and justify.
 
+The boxcox plot shows a lambda of 1 within the acceptable range suggesting that there may not be a need for a transformation on the response variable. 
+
 
 ```{r}
+
+car::boxCox(Modern.lm)
+#car::boxCox(ModernNew.lm)
+#car::boxCox(ModernFert.lm)
 
 ```
 
 8.  Fit the regression using the transformed variables.  Provide residual plots and added variables plots and comment.  If you feel that you need additional transformations of either the response or predictors, repeat any steps until you feel satisfied.
 
-9. Start by finding the best transformation of the response and then find transformations of the predictors.  Do you end up with a different model than in 8?
+The ModernNew.lm model removed Change and Purban because they did not appear to be significant predictors. Looking at the summary of this model, it does not appear to fit any better than the original model with a, R-Squared value of .60 and an F-Statistic of 46.42.
+
+The ModernNew1.lm experimented with removing Fertility because it appeared to have a non-linear relationship. The summary of this model does not appear any better than the previous model.
+
+ModernNew2.lm is the best linear model yet, with each predictor showing very strong p values, explaining nearly 66% of the variability, with the highest F statistic yet of 93.53. Residual plots of this model indicate there may be an issue with the model as the scale location plot does not appear flat. Additionally the Residuals v Fitted plot seems to fan out a bit. 
+
+Reitierating steps using model ModernNew2.lm, the avplots look good, however the boxTidwell function suggests that there might be another transformation needed for log(Pop)^5. However this did not appear to make anything better looking at the residual plots and seems like it may unnecessarily overcomplicate the model. Next, running a boxcox on the ModernNew2.lm model suggest that a squareroot transformation of the response variable may prove helpful.
+
+Model ModernNew4.lm transforms the response variable to the squareroot of ModernC. Looking at the summary statistics, we can see this model improves upon the last, accounting for approximately 69% of the variability in ModernC. The residual graphs of this model look much better with a much flatter scale location plot, and a less of a fan shape in the residuals vs. fitted graph. The fitted QQ plot may indicate some issues but the skew showing in earlier models is now gone. 
 
 
 ```{r}
+
+#model removing Purban and Change, with transformation of PPgdp and Pop
+ModernNew.lm <-lm(ModernC ~ Fertility+log(PPgdp)+Frate+log(Pop), UN3)
+summary(ModernNew.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernNew.lm, ask=F) #plot the residual graphs    
+
+#model removing Purban and Change, with transformation of PPgdp and Pop
+ModernNew1.lm <-lm(ModernC ~ Fertility+log(PPgdp)+Frate+log(Pop)+Change+Purban, UN3)
+summary(ModernNew1.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernNew1.lm, ask=F) #plot the residual graphs    
+
+#model removing Frate
+ModernNew2.lm <-lm(ModernC ~ Fertility+log(PPgdp)+log(Pop), UN3)
+summary(ModernNew2.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernNew2.lm, ask=F) #plot the residual graphs    
+
+
+#choose ModernNew2.lm and reiterate through steps. 
+car::avPlots(ModernNew2.lm)
+
+car::boxTidwell(ModernC~Fertility + log(PPgdp)+log(Pop), data =UN3)
+
+#raise Log(Pop) to the 5th power as suggested by the boxTidwell function
+ModernNew3.lm <-lm(ModernC ~ Fertility+log(PPgdp)+(log(Pop)^5), UN3)
+summary(ModernNew3.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernNew3.lm, ask=F) #plot the residual graphs  
+
+#Ignoring the latest transformation, perform boxcox
+car::boxCox(ModernNew2.lm)
+
+
+
+UN3.Resp <- transform(UN3, ModernCsq = ModernC^(1/2), LogGdp = log(PPgdp),  LogPop = log(Pop)) 
+
+
+ModernNew4.lm <-lm(ModernCsq ~ Fertility+LogGdp+LogPop, UN3.Resp)
+summary(ModernNew4.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernNew4.lm, ask=F) #plot the residual graphs  
+
+
+```
+
+
+9. Start by finding the best transformation of the response and then find transformations of the predictors.  Do you end up with a different model than in 8? 
+
+This did end up in a different model thatn in 8, and this model is not nearly as strong although it is more symmetric, it only accounts for 59% of the variation and has a much lower f-statistic.
+
+```{r}
+car::boxCox(Modern.lm)
+
+ModernReverse.lm <-lm((ModernC^(3/4)) ~ ., UN3)
+
+summary(ModernReverse.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernReverse.lm, ask=F) #plot the residual graphs  
+
+car::avPlots(ModernReverse.lm)
+#remove Frate and Purban from the model
+
+UN3.Positive <- transform(UN3, ModernCtrans = ModernC^(3/4), LogGdp = log(PPgdp),  LogPop = log(Pop), changepos = Change+1.11) 
+
+car::boxTidwell(ModernCtrans~ Fertility + LogGdp + LogPop , data =UN3.Positive)
+
+#Per boxTidwell transform Fertility to the -2 and LogPop to the 2
+
+UN3.Rev.Tr <- transform(UN3, ModernCtrans = ModernC^(3/4), LogGdp = log(PPgdp),  LogPop = log(Pop)^2, changepos = Change+1.11, Fertility2 = Fertility ^(-2)) 
+
+ModernReverse2.lm <-lm(ModernCtrans ~LogGdp +LogPop+Change+Fertility2 , UN3.Rev.Tr)
+
+summary(ModernReverse2.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernReverse2.lm, ask=F) #plot the residual graphs  
+
+#Remove Fertility2 as it is not statistically significant
+ModernReverse3.lm <-lm(ModernCtrans ~LogGdp +LogPop+Change , UN3.Rev.Tr)
+
+summary(ModernReverse3.lm)
+
+par(mfrow=c(2,2)) 
+plot(ModernReverse3.lm, ask=F) #plot the residual graphs  
+
 
 ```
 
 10.  Are there any outliers or influential points in the data?  Explain.  If so, refit the model after removing any outliers and comment on residual plots.
 
+While the initial scatterplots showed outliers, these points do not appear to have high leverage in the final model. The final avPlots and Residual plots do not indicate any points that need to be removed.
 
 ```{r}
+car::avPlots(ModernNew4.lm)
+
+
 
 ```
 
@@ -103,22 +283,31 @@ on your findings regarding trying to predict `ModernC` from the other variables.
 
 
 ```{r}
+library(xtable)
+xtable(confint(ModernNew4.lm))
 
 ```
 
 
 12. Provide a paragraph summarizing your final model  and findings suitable for the US envoy to the UN after adjusting for outliers or influential points.   You should provide a justification for any case deletions in your final model
 
+The model finds that for a 10% increase in Population we see a 0.86% increase in the percent of unmarried women using a modern method of contraception. A 10% increase in GDP results in a much more significant 3.47% increase in the use of modern contraceptive methods. For an increase in Fertility metric by 1 unit, we expect to see a decrease in modern contraceptive use by 53.70%. No cases were deleted in this model.
 
-```{r}
-
-```
 
 
 ## Methodology
 
     
 13. Prove that the intercept in the added variable scatter plot will always be zero.  _Hint:  use the fact that if $H$ is the project matrix which contains a column of ones, then $1_n^T (I - H) = 0$.  Use this to show that the sample mean of residuals will always be zero if there is an intercept._
+
+$(I-H)Y = \hat{\beta_0}+\hat{\beta_1}(I-H)X_3 $
+$(I-H)Y = \hat{\beta_0}\mathbb{1} + [x_3^t(I-H)(I-H)X_3]^{-1}((I-H)X_3)^T$
+$(I-H)Y = \hat{\beta_0}\mathbb{1} + [x_3^t(I-H)(I-H)X_3]^{-1}(I-H)Y(I-H)X_3$
+$X_3^T(I-H)Y = X_3^T\hat{\beta_0}\mathbb{1} + X_3^T[x_3^t(I-H)(I-H)X_3]^{-1}X_3^T(I-H)Y(I-H)X_3$
+$X_3^T(I-H)Y = X_3^T\hat{\beta_0}\mathbb{1} + X_3^T(I-H)X_3[x_3^t(I-H)X_3]^{-1}X_3^T(I-H)Y$
+$X_3^T(I-H)Y =\sum_{i=1}^n X_3^{(i)}\hat{\beta_0}+X_3^T(I-H)Y$
+$\hat{\beta_0}=0$
+
 
 
 14. For multiple regression with more than 2 predictors, say a full model given by `Y ~ X1 + X2 + ... Xp`   we create the added variable plot for variable `j` by regressing `Y` on all of the `X`'s except `Xj` to form `e_Y` and then regressing `Xj` on all of the other X's to form `e_X`.  Confirm that the slope in a manually constructed added variable plot for one of the predictors  in Ex. 10 is the same as the estimate from your model. 
